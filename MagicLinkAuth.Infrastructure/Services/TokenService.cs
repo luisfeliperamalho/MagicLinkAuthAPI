@@ -11,11 +11,15 @@ namespace MagicLinkAuth.Infrastructure.Services;
 public class TokenService : ITokenService
 {
     private readonly IConfiguration _config;
+    private readonly AppDbContext _context;
 
-    public TokenService(IConfiguration config)
+    public TokenService(IConfiguration config, AppDbContext context)
     {
         _config = config;
+        _context = context;
     }
+
+    private readonly Dictionary<string, (Guid userId, DateTime expires)> _tokens = new();
 
     public string GenerateLoginToken(User user, TimeSpan expiration)
     {
@@ -39,5 +43,25 @@ public class TokenService : ITokenService
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
+    }
+
+    public void StoreToken(string token, Guid userId, TimeSpan validFor)
+    {
+        _tokens[token] = (userId, DateTime.UtcNow.Add(validFor));
+    }
+
+    public Guid? ValidateMagicLinkTokenAsync(string token)
+    {
+        if (_tokens.TryGetValue(token, out var entry))
+        {
+            if (entry.expires > DateTime.UtcNow)
+                return entry.userId;
+        }
+        return null;
+    }
+
+    public void InvalidateTokenAsync(string token)
+    {
+        _tokens.Remove(token);
     }
 }

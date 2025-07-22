@@ -38,4 +38,21 @@ public class TestTokenController : ControllerBase
 
         return Ok(new { Message = "Link enviado para seu e-mail." });
     }
+
+    [HttpGet("auth/confirm")]
+    public IActionResult Confirm([FromQuery] string token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return BadRequest("Token is required");
+
+        var userId = _tokenService.ValidateMagicLinkTokenAsync(token);
+        if (userId == null)
+            return Unauthorized("Invalid or expired token");
+
+        var jwt = _jwtService.GenerateToken(userId.Value);
+
+        _tokenService.InvalidateTokenAsync(token);
+
+        return Ok(new { token = jwt });
+    }
 }
