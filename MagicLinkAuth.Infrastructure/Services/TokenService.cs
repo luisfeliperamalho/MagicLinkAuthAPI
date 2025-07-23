@@ -3,10 +3,9 @@ using System.Security.Claims;
 using System.Text;
 using MagicLinkAuth.Application.Interfaces;
 using MagicLinkAuth.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-
-namespace MagicLinkAuth.Infrastructure.Services;
 
 public class TokenService : ITokenService
 {
@@ -19,9 +18,7 @@ public class TokenService : ITokenService
         _context = context;
     }
 
-    private readonly Dictionary<string, (Guid userId, DateTime expires)> _tokens = new();
-
-    public string GenerateLoginToken(User user, TimeSpan expiration)
+    public async Task<string> GenerateAndStoreTokenAsync(User user, TimeSpan expiration)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
@@ -41,27 +38,42 @@ public class TokenService : ITokenService
                 SecurityAlgorithms.HmacSha256Signature)
         };
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
-    }
+        var securityToken = tokenHandler.CreateToken(tokenDescriptor);
+        var tokenString = tokenHandler.WriteToken(securityToken);
 
-    public void StoreToken(string token, Guid userId, TimeSpan validFor)
-    {
-        _tokens[token] = (userId, DateTime.UtcNow.Add(validFor));
-    }
-
-    public Guid? ValidateMagicLinkTokenAsync(string token)
-    {
-        if (_tokens.TryGetValue(token, out var entry))
+        var loginToken = new LoginToken
         {
-            if (entry.expires > DateTime.UtcNow)
-                return entry.userId;
-        }
-        return null;
+            Token = tokenString,
+            UserId = user.Id,
+            ExpiresAt = DateTime.UtcNow.Add(expiration)
+        };
+
+        _context.LoginTokens.Add(loginToken);
+        await _context.SaveChangesAsync();
+
+        return tokenString;
     }
 
-    public void InvalidateTokenAsync(string token)
+    public async Task<Guid?> ValidateMagicLinkTokenAsync(string token)
     {
-        _tokens.Remove(token);
+        var loginToken = await _context.LoginTokens
+            .FirstOrDefaultAsync(t => t.Token == token);
+
+        if (loginToken == null || !loginToken.IsValid)
+            return null;
+
+        return loginToken.UserId;
+    }
+
+    public async Task InvalidateTokenAsync(string token)
+    {
+        var loginToken = await _context.LoginTokens
+            .FirstOrDefaultAsync(t => t.Token == token);
+
+        if (loginToken != null && !loginToken.IsUsed)
+        {
+            loginToken.IsUsed = true;
+            await _context.SaveChangesAsync();
+        }
     }
 }

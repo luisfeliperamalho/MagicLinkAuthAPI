@@ -2,6 +2,7 @@ using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 public class JwtService : IJwtService
@@ -9,10 +10,14 @@ public class JwtService : IJwtService
     private readonly string _secretKey;
     private readonly int _expirationMinutes;
 
-    public JwtService(string secretKey, int expirationMinutes = 60)
+    public JwtService(IConfiguration configuration)
     {
-        _secretKey = secretKey;
-        _expirationMinutes = expirationMinutes;
+        _secretKey = configuration["Jwt:Key"]
+            ?? throw new ArgumentNullException("Jwt:Key não configurado.");
+
+        _expirationMinutes = int.TryParse(configuration["Jwt:ExpirationMinutes"], out var minutes)
+            ? minutes
+            : 60;
     }
 
     public string GenerateToken(Guid userId)

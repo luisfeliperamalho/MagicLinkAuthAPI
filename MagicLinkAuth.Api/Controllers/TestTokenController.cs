@@ -10,19 +10,13 @@ public class TestTokenController : ControllerBase
 {
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
+    private readonly IJwtService _jwtService;
 
-    public TestTokenController(ITokenService tokenService, IEmailService emailService)
+    public TestTokenController(ITokenService tokenService, IEmailService emailService, IJwtService jwtService)
     {
         _tokenService = tokenService;
         _emailService = emailService;
-    }
-
-    [HttpGet]
-    public IActionResult GetToken()
-    {
-        var user = new User { Email = "teste@exemplo.com" };
-        var token = _tokenService.GenerateLoginToken(user, TimeSpan.FromMinutes(15));
-        return Ok(new { token });
+        _jwtService = jwtService;
     }
 
     [HttpPost("request-login")]
@@ -30,9 +24,10 @@ public class TestTokenController : ControllerBase
     {
         var user = new User { Email = request.Email };
 
-        var token = _tokenService.GenerateLoginToken(user, TimeSpan.FromMinutes(15));
+        // Gera e armazena o token magic link
+        var token = await _tokenService.GenerateAndStoreTokenAsync(user, TimeSpan.FromMinutes(15));
 
-        var magicLink = $"https://localhost:3000/validate?token={token}";
+        var magicLink = $"http://localhost:5209/api/token/auth/confirm?token={token}";
 
         await _emailService.SendMagicLinkAsync(user.Email, magicLink);
 
@@ -40,18 +35,18 @@ public class TestTokenController : ControllerBase
     }
 
     [HttpGet("auth/confirm")]
-    public IActionResult Confirm([FromQuery] string token)
+    public async Task<IActionResult> Confirm([FromQuery] string token)
     {
         if (string.IsNullOrEmpty(token))
-            return BadRequest("Token is required");
+            return BadRequest("Token é obrigatório.");
 
-        var userId = _tokenService.ValidateMagicLinkTokenAsync(token);
+        var userId = await _tokenService.ValidateMagicLinkTokenAsync(token);
         if (userId == null)
-            return Unauthorized("Invalid or expired token");
+            return Unauthorized("Token inválido ou expirado.");
 
         var jwt = _jwtService.GenerateToken(userId.Value);
 
-        _tokenService.InvalidateTokenAsync(token);
+        await _tokenService.InvalidateTokenAsync(token);
 
         return Ok(new { token = jwt });
     }

@@ -4,9 +4,9 @@ namespace MagicLinkAuth.Application.Interfaces;
 
 public interface ITokenService
 {
-    string GenerateLoginToken(User user, TimeSpan expiration);
+    Task<string> GenerateAndStoreTokenAsync(User user, TimeSpan expiration);
 
-    void StoreToken(string token, Guid userId, TimeSpan validFor);
+    Task<Guid?> ValidateMagicLinkTokenAsync(string token);
 
-    Guid? ValidateMagicLinkTokenAsync(string token);
+    Task InvalidateTokenAsync(string token);
 }

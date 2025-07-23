@@ -1,13 +1,12 @@
 using MagicLinkAuth.Application.Interfaces;
-using MagicLinkAuth.Infrastructure.Data;
 using MagicLinkAuth.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configura o DbContext (SQLite por exemplo)
+// Configura o DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Injeção de dependência
 builder.Services.AddScoped<IEmailService, EmailService>();
