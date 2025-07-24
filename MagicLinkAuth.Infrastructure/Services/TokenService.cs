@@ -1,81 +1,60 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using MagicLinkAuth.Application.Interfaces;
 using MagicLinkAuth.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 
 public class TokenService : ITokenService
 {
     private readonly IConfiguration _config;
     private readonly AppDbContext _context;
-  public TokenService(IConfiguration config, AppDbContext context)
+
+    public TokenService(IConfiguration config, AppDbContext context)
     {
         _config = config;
         _context = context;
-
-        // DEBUG: imprime no console as configurações importantes
-        Console.WriteLine("Jwt:Key = " + _config["Jwt:Key"]);
-        Console.WriteLine("DefaultConnection = " + _config.GetConnectionString("DefaultConnection"));
     }
 
-    public async Task<string> GenerateAndStoreTokenAsync(User user, TimeSpan expiration)
+    // Gera e armazena um token associado apenas ao email (sem vincular a um usuário do sistema)
+    public async Task<string> GenerateAndStoreTokenAsync(string email, TimeSpan expiration)
     {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
-
-        var userId = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id;
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
-            {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-        }),
-            Expires = DateTime.UtcNow.Add(expiration),
-            Issuer = _config["Jwt:Issuer"],
-            Audience = _config["Jwt:Audience"],
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var securityToken = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(securityToken);
+        var token = Guid.NewGuid().ToString();
 
         var loginToken = new LoginToken
         {
-            Token = tokenString,
-            UserId = userId,
-            ExpiresAt = DateTime.UtcNow.Add(expiration)
+            Token = token,
+            Email = email,
+            ExpiresAt = DateTime.UtcNow.Add(expiration),
+            IsUsed = false
         };
 
         _context.LoginTokens.Add(loginToken);
         await _context.SaveChangesAsync();
 
-        return tokenString;
+        return token;
     }
 
-    public async Task<Guid?> ValidateMagicLinkTokenAsync(string token)
+    // Valida o token magic link e retorna o email, se válido e não expirado
+    public async Task<string?> ValidateMagicLinkTokenAsync(string token)
     {
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
         var loginToken = await _context.LoginTokens
             .FirstOrDefaultAsync(t => t.Token == token);
 
-        if (loginToken == null || !loginToken.IsValid)
+        if (loginToken is null || loginToken.IsUsed || loginToken.ExpiresAt < DateTime.UtcNow)
             return null;
 
-        return loginToken.UserId;
+        return loginToken.Email;
     }
 
+    // Invalida o token após o uso
     public async Task InvalidateTokenAsync(string token)
     {
         var loginToken = await _context.LoginTokens
             .FirstOrDefaultAsync(t => t.Token == token);
 
-        if (loginToken != null && !loginToken.IsUsed)
+        if (loginToken is not null && !loginToken.IsUsed)
         {
             loginToken.IsUsed = true;
             await _context.SaveChangesAsync();

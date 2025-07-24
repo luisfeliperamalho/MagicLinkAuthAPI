@@ -1,4 +1,4 @@
 public interface IJwtService
 {
-    string GenerateToken(Guid userId);
+    string GenerateToken(string email);
 }

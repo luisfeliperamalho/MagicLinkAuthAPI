@@ -1,8 +1,5 @@
 using MagicLinkAuth.Application.Interfaces;
-using MagicLinkAuth.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
-
-namespace MagicLinkAuth.Api.Controllers;
 
 [ApiController]
 [Route("api/token")]
@@ -19,35 +16,35 @@ public class TestTokenController : ControllerBase
         _jwtService = jwtService;
     }
 
-    [HttpPost("request-login")]
+    [HttpPost("sendEmail")]
     public async Task<IActionResult> RequestLogin([FromBody] LoginRequest request)
     {
-        var user = new User { Email = request.Email };
+        var token = await _tokenService.GenerateAndStoreTokenAsync(request.Email, TimeSpan.FromMinutes(15));
+        var magicLink = $"http://localhost:5173/validate?token={token}";
 
-        // Gera e armazena o token magic link
-        var token = await _tokenService.GenerateAndStoreTokenAsync(user, TimeSpan.FromMinutes(15));
-
-        var magicLink = $"http://localhost:5209/api/token/auth/confirm?token={token}";
-
-        await _emailService.SendMagicLinkAsync(user.Email, magicLink);
+        await _emailService.SendMagicLinkAsync(request.Email, magicLink);
 
         return Ok(new { Message = "Link enviado para seu e-mail." });
     }
 
-    [HttpGet("auth/confirm")]
-    public async Task<IActionResult> Confirm([FromQuery] string token)
+    [HttpGet("validate")]
+    public async Task<IActionResult> Validate([FromQuery] string token)
     {
-        if (string.IsNullOrEmpty(token))
+        if (string.IsNullOrWhiteSpace(token))
             return BadRequest("Token é obrigatório.");
 
-        var userId = await _tokenService.ValidateMagicLinkTokenAsync(token);
-        if (userId == null)
+        // Valida o token e obtém o e-mail associado
+        var email = await _tokenService.ValidateMagicLinkTokenAsync(token);
+        if (email is null)
             return Unauthorized("Token inválido ou expirado.");
 
-        var jwt = _jwtService.GenerateToken(userId.Value);
+        // Gera o JWT com base no e-mail
+        var jwt = _jwtService.GenerateToken(email);
 
+        // Invalida o token magic link após o uso
         await _tokenService.InvalidateTokenAsync(token);
 
         return Ok(new { token = jwt });
     }
+
 }
