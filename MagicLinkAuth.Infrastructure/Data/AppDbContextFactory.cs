@@ -15,7 +15,7 @@ namespace MagicLinkAuth.Infrastructure
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-            var connectionString = config.GetConnectionString("DefaultConnection");
+            var connectionString = config.GetConnectionString("DefaultConnection1");
 
             optionsBuilder.UseNpgsql(connectionString);
 

@@ -6,7 +6,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configura o DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection1"),
+        x => x.MigrationsAssembly("MagicLinkAuth.Infrastructure")
+    )
+);
+
 
 // Injeção de dependência
 builder.Services.AddScoped<IEmailService, EmailService>();

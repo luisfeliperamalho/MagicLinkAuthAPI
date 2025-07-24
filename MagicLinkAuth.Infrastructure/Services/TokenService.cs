@@ -11,11 +11,14 @@ public class TokenService : ITokenService
 {
     private readonly IConfiguration _config;
     private readonly AppDbContext _context;
-
-    public TokenService(IConfiguration config, AppDbContext context)
+  public TokenService(IConfiguration config, AppDbContext context)
     {
         _config = config;
         _context = context;
+
+        // DEBUG: imprime no console as configurações importantes
+        Console.WriteLine("Jwt:Key = " + _config["Jwt:Key"]);
+        Console.WriteLine("DefaultConnection = " + _config.GetConnectionString("DefaultConnection"));
     }
 
     public async Task<string> GenerateAndStoreTokenAsync(User user, TimeSpan expiration)
@@ -23,13 +26,15 @@ public class TokenService : ITokenService
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
 
+        var userId = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id;
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-            }),
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Email, user.Email),
+        }),
             Expires = DateTime.UtcNow.Add(expiration),
             Issuer = _config["Jwt:Issuer"],
             Audience = _config["Jwt:Audience"],
@@ -44,7 +49,7 @@ public class TokenService : ITokenService
         var loginToken = new LoginToken
         {
             Token = tokenString,
-            UserId = user.Id,
+            UserId = userId,
             ExpiresAt = DateTime.UtcNow.Add(expiration)
         };
 

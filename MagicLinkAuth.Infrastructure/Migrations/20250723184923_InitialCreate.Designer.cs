@@ -11,7 +11,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MagicLinkAuth.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250723155407_InitialCreate")]
+    [Migration("20250723184923_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
