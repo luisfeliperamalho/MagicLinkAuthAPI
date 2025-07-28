@@ -23,11 +23,9 @@ namespace MagicLinkAuth.Infrastructure.Migrations
 
             modelBuilder.Entity("LoginToken", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -45,7 +43,7 @@ namespace MagicLinkAuth.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LoginTokens");
+                    b.ToTable("LoginTokens", (string)null);
                 });
 #pragma warning restore 612, 618
         }

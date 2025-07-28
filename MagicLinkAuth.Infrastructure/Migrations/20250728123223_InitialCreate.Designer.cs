@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MagicLinkAuth.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250724204613_AddEmailToLoginToken2")]
-    partial class AddEmailToLoginToken2
+    [Migration("20250728123223_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -26,11 +26,9 @@ namespace MagicLinkAuth.Infrastructure.Migrations
 
             modelBuilder.Entity("LoginToken", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -48,7 +46,7 @@ namespace MagicLinkAuth.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LoginTokens");
+                    b.ToTable("LoginTokens", (string)null);
                 });
 #pragma warning restore 612, 618
         }
